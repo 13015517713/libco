@@ -117,7 +117,7 @@ static void *poll_routine( void *arg )
 		SetNonBlock( fd );
 		v[i].fd = fd;
 
-		int ret = connect(fd,(struct sockaddr*)&v[i].addr,sizeof( v[i].addr )); 
+		int ret = connect(fd,(struct sockaddr*)&v[i].addr,sizeof( v[i].addr ));  // maybe：for测试链接
 		printf("co %p connect i %ld ret %d errno %d (%s)\n",
 			co_self(),i,ret,errno,strerror(errno));
 	}

@@ -64,9 +64,9 @@ static int SetNonBlock(int iSock)
 static void *readwrite_routine( void *arg )
 {
 
-	co_enable_hook_sys();
+	co_enable_hook_sys(); // how work？
 
-	task_t *co = (task_t*)arg;
+	task_t *co = (task_t*)arg;  // 参数传协程管理器
 	char buf[ 1024 * 16 ];
 	for(;;)
 	{
@@ -117,7 +117,7 @@ static void *accept_routine( void * )
 			printf("empty\n"); //sleep
 			struct pollfd pf = { 0 };
 			pf.fd = -1;
-			poll( &pf,1,1000);
+			poll( &pf,1,1000); // -1只是为了sleep？
 
 			continue;
 
@@ -236,8 +236,8 @@ int main(int argc,char *argv[])
 		{
 			task_t * task = (task_t*)calloc( 1,sizeof(task_t) );
 			task->fd = -1;
-
-			co_create( &(task->co),NULL,readwrite_routine,task );
+	
+			co_create( &(task->co),NULL,readwrite_routine,task ); // 创建协程，协程的执行函数为readwrite_routine，参数为task
 			co_resume( task->co );
 
 		}
@@ -245,7 +245,7 @@ int main(int argc,char *argv[])
 		co_create( &accept_co,NULL,accept_routine,0 );
 		co_resume( accept_co );
 
-		co_eventloop( co_get_epoll_ct(),0,0 );
+		co_eventloop( co_get_epoll_ct(),0,0 ); // ?
 
 		exit(0);
 	}

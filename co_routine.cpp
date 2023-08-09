@@ -325,7 +325,7 @@ struct stCoEpoll_t
 };
 typedef void (*OnPreparePfn_t)( stTimeoutItem_t *,struct epoll_event &ev, stTimeoutItemLink_t *active );
 typedef void (*OnProcessPfn_t)( stTimeoutItem_t *);
-struct stTimeoutItem_t
+struct stTimeoutItem_t // 感觉是一个槽？
 {
 
 	enum
@@ -434,7 +434,7 @@ inline void TakeAllTimeout( stTimeout_t *apTimeout,unsigned long long allNow,stT
 	for( int i = 0;i<cnt;i++)
 	{
 		int idx = ( apTimeout->llStartIdx + i) % apTimeout->iItemSize;
-		Join<stTimeoutItem_t,stTimeoutItemLink_t>( apResult,apTimeout->pItems + idx  );
+		Join<stTimeoutItem_t,stTimeoutItemLink_t>( apResult,apTimeout->pItems + idx  ); // 把可执行任务都拿出来？
 	}
 	apTimeout->ullStart = allNow;
 	apTimeout->llStartIdx += cnt - 1;
@@ -460,7 +460,7 @@ static int CoRoutineFunc( stCoRoutine_t *co,void * )
 
 struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env, const stCoRoutineAttr_t* attr,
 		pfn_co_routine_t pfn,void *arg )
-{
+{ // 初始化协程状态
 
 	stCoRoutineAttr_t at;
 	if( attr )
@@ -482,7 +482,7 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env, const stCoRoutineAt
 		at.stack_size += 0x1000;
 	}
 
-	stCoRoutine_t *lp = (stCoRoutine_t*)malloc( sizeof(stCoRoutine_t) );
+	stCoRoutine_t *lp = (stCoRoutine_t*)malloc( sizeof(stCoRoutine_t) ); 
 	
 	memset( lp,0,(long)(sizeof(stCoRoutine_t))); 
 
@@ -520,9 +520,9 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env, const stCoRoutineAt
 
 int co_create( stCoRoutine_t **ppco,const stCoRoutineAttr_t *attr,pfn_co_routine_t pfn,void *arg )
 {
-	if( !co_get_curr_thread_env() ) 
+	if( !co_get_curr_thread_env() )  
 	{
-		co_init_curr_thread_env();
+		co_init_curr_thread_env(); // 每个线程会默认创建一个？
 	}
 	stCoRoutine_t *co = co_create_env( co_get_curr_thread_env(), attr, pfn,arg );
 	*ppco = co;
@@ -632,13 +632,13 @@ void save_stack_buffer(stCoRoutine_t* occupy_co)
 	memcpy(occupy_co->save_buffer, occupy_co->stack_sp, len);
 }
 
-void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
+void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co) // 上下文切换
 {
  	stCoRoutineEnv_t* env = co_get_curr_thread_env();
 
 	//get curr stack sp
 	char c;
-	curr->stack_sp= &c;
+	curr->stack_sp= &c; // 获取当前栈顶指针
 
 	if (!pending_co->cIsShareStack)
 	{
@@ -661,7 +661,7 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
 	}
 
 	//swap context
-	coctx_swap(&(curr->ctx),&(pending_co->ctx) );
+	coctx_swap(&(curr->ctx),&(pending_co->ctx) ); // 切换寄存器上下文
 
 	//stack buffer may be overwrite, so get again;
 	stCoRoutineEnv_t* curr_env = co_get_curr_thread_env();
@@ -741,7 +741,7 @@ static __thread stCoRoutineEnv_t* gCoEnvPerThread = NULL;
 
 void co_init_curr_thread_env()
 {
-	gCoEnvPerThread = (stCoRoutineEnv_t*)calloc( 1, sizeof(stCoRoutineEnv_t) );
+	gCoEnvPerThread = (stCoRoutineEnv_t*)calloc( 1, sizeof(stCoRoutineEnv_t) ); // 协程环境，线程中协程的调用链
 	stCoRoutineEnv_t *env = gCoEnvPerThread;
 
 	env->iCallStackSize = 0;
@@ -751,11 +751,11 @@ void co_init_curr_thread_env()
 	env->pending_co = NULL;
 	env->occupy_co = NULL;
 
-	coctx_init( &self->ctx );
+	coctx_init( &self->ctx ); // 初始化上下文
 
-	env->pCallStack[ env->iCallStackSize++ ] = self;
+	env->pCallStack[ env->iCallStackSize++ ] = self; // 第一个协程总是自己
 
-	stCoEpoll_t *ev = AllocEpoll();
+	stCoEpoll_t *ev = AllocEpoll(); //  epoll管理器对象
 	SetEpoll( env,ev );
 }
 stCoRoutineEnv_t *co_get_curr_thread_env()
@@ -803,7 +803,7 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 	{
 		int ret = co_epoll_wait( ctx->iEpollFd,result,stCoEpoll_t::_EPOLL_SIZE, 1 );
 
-		stTimeoutItemLink_t *active = (ctx->pstActiveList);
+		stTimeoutItemLink_t *active = (ctx->pstActiveList); // 条件变量直接加到这里了
 		stTimeoutItemLink_t *timeout = (ctx->pstTimeoutList);
 
 		memset( timeout,0,sizeof(stTimeoutItemLink_t) );
@@ -833,13 +833,13 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 			lp = lp->pNext;
 		}
 
-		Join<stTimeoutItem_t,stTimeoutItemLink_t>( active,timeout );
+		Join<stTimeoutItem_t,stTimeoutItemLink_t>( active,timeout ); // 把超时的加进来
 
 		lp = active->head;
 		while( lp )
 		{
 
-			PopHead<stTimeoutItem_t,stTimeoutItemLink_t>( active );
+ 			PopHead<stTimeoutItem_t,stTimeoutItemLink_t>( active );
             if (lp->bTimeout && now < lp->ullExpireTime) 
 			{
 				int ret = AddTimeout(ctx->pTimeout, lp, now);
@@ -1124,9 +1124,9 @@ int co_cond_signal( stCoCond_t *si )
 	{
 		return 0;
 	}
-	RemoveFromLink<stTimeoutItem_t,stTimeoutItemLink_t>( &sp->timeout );
+	RemoveFromLink<stTimeoutItem_t,stTimeoutItemLink_t>( &sp->timeout ); // 从link中移除
 
-	AddTail( co_get_curr_thread_env()->pEpoll->pstActiveList,&sp->timeout );
+	AddTail( co_get_curr_thread_env()->pEpoll->pstActiveList,&sp->timeout ); // 添加到active list中，主循环会扫到吧
 
 	return 0;
 }

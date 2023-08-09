@@ -42,7 +42,7 @@ void* Producer(void* args)
 		task->id = id++;
 		env->task_queue.push(task);
 		printf("%s:%d produce task %d\n", __func__, __LINE__, task->id);
-		co_cond_signal(env->cond);
+		co_cond_signal(env->cond); // 怎么搞的？
 		poll(NULL, 0, 1000);
 	}
 	return NULL;
@@ -78,6 +78,6 @@ int main()
 	co_create(&producer_routine, NULL, Producer, env);
 	co_resume(producer_routine);
 	
-	co_eventloop(co_get_epoll_ct(), NULL, NULL);
+	co_eventloop(co_get_epoll_ct(), NULL, NULL); // 启动时间轮调度算法
 	return 0;
 }
